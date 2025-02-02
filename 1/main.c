@@ -1,91 +1,95 @@
 #include "pico/stdlib.h"
-#include "hardware/pwm.h"
 #include "hardware/timer.h"
 
-// Definição dos pinos RGB da BitDogLab
-#define LED_RED_PIN 16
-#define LED_GREEN_PIN 17
-#define LED_BLUE_PIN 18
+// Configurações de hardware
+#define PINO_LED 12
+#define PINO_BOTAO 5
 
-// Constantes para controle do PWM
-#define PWM_CLOCK 125000000  // Clock base do RP2040 (125MHz)
-#define PWM_MAX_COUNT 65535  // Resolução máxima do PWM (16 bits)
-#define DUTY_CYCLE_MIN 5     // Duty cycle mínimo (5%)
-#define DUTY_CYCLE_MAX 100   // Duty cycle máximo (100%)
-#define DUTY_CYCLE_STEP 5    // Incremento do duty cycle
-#define UPDATE_INTERVAL_MS 2000 // Intervalo de atualização (2 segundos)
+// Parâmetros de operação
+#define TEMPO_DEBOUNCE 50    // ms
+#define NUM_ACIONAMENTOS 5   // vezes
+#define DURACAO_PISCA 10000  // ms
+#define INTERVALO_PISCA 100  // ms
 
-// Estrutura para controle do LED PWM
+// Estados da aplicação
 typedef struct {
-    uint pin;
-    uint slice;
-    uint channel;
-    float freq;
-    uint duty_cycle;
-} PwmLed;
+    volatile bool piscando;
+    volatile absolute_time_t fim_pisca;
+    uint contagem;
+    struct repeating_timer temporizador;
+} EstadoApp;
 
-// Variáveis globais
-PwmLed red_led, green_led, blue_led;
-struct repeating_timer update_timer;
+// Protótipos de funções
+void configurar_led();
+void configurar_botao();
+bool verificar_botao();
+void iniciar_sequencia(EstadoApp *estado);
+bool callback_pisca(struct repeating_timer *t);
 
-// Função para configurar o PWM
-void pwm_led_init(PwmLed *led, uint pin, float freq) {
-    led->pin = pin;
-    led->freq = freq;
-    led->duty_cycle = DUTY_CYCLE_MIN;
-    
-    gpio_set_function(pin, GPIO_FUNC_PWM);
-    led->slice = pwm_gpio_to_slice_num(pin);
-    led->channel = pwm_gpio_to_channel(pin);
-    
-    // Calcula os valores para a frequência desejada
-    float divider = PWM_CLOCK / (freq * PWM_MAX_COUNT);
-    pwm_set_clkdiv(led->slice, divider);
-    pwm_set_wrap(led->slice, PWM_MAX_COUNT);
-    
-    // Inicia com duty cycle mínimo
-    uint level = (PWM_MAX_COUNT * led->duty_cycle) / 100;
-    pwm_set_chan_level(led->slice, led->channel, level);
-    pwm_set_enabled(led->slice, true);
+void configurar_led() {
+    gpio_init(PINO_LED);
+    gpio_set_dir(PINO_LED, GPIO_OUT);
 }
 
-// Função para atualizar o duty cycle
-void update_duty_cycle(PwmLed *led) {
-    led->duty_cycle += DUTY_CYCLE_STEP;
-    if (led->duty_cycle > DUTY_CYCLE_MAX) {
-        led->duty_cycle = DUTY_CYCLE_MIN;
+void configurar_botao() {
+    gpio_init(PINO_BOTAO);
+    gpio_set_dir(PINO_BOTAO, GPIO_IN);
+    gpio_pull_up(PINO_BOTAO);
+}
+
+bool verificar_botao() {
+    if (!gpio_get(PINO_BOTAO)) {
+        sleep_ms(TEMPO_DEBOUNCE);
+        if (!gpio_get(PINO_BOTAO)) {
+            while (!gpio_get(PINO_BOTAO)) sleep_ms(10);
+            return true;
+        }
     }
-    
-    uint level = (PWM_MAX_COUNT * led->duty_cycle) / 100;
-    pwm_set_chan_level(led->slice, led->channel, level);
+    return false;
 }
 
-// Callback do timer para atualização do duty cycle
-bool update_timer_callback(struct repeating_timer *t) {
-    update_duty_cycle(&red_led);
-    update_duty_cycle(&green_led);
-    return true;
+void iniciar_sequencia(EstadoApp *estado) {
+    estado->contagem = 0;
+    estado->piscando = true;
+    estado->fim_pisca = make_timeout_time_ms(DURACAO_PISCA);
+    add_repeating_timer_ms(INTERVALO_PISCA, callback_pisca, estado, &estado->temporizador);
+}
+
+bool callback_pisca(struct repeating_timer *t) {
+    EstadoApp *estado = (EstadoApp*)t->user_data;
+    
+    if (estado->piscando) {
+        gpio_put(PINO_LED, !gpio_get(PINO_LED));
+        
+        if (absolute_time_diff_us(get_absolute_time(), estado->fim_pisca) <= 0) {
+            estado->piscando = false;
+            gpio_put(PINO_LED, false);
+            return false;
+        }
+        return true;
+    }
+    return false;
 }
 
 int main() {
     stdio_init_all();
-    
-    // Inicializa os LEDs com suas respectivas frequências
-    pwm_led_init(&red_led, LED_RED_PIN, 1000);    // 1kHz
-    pwm_led_init(&green_led, LED_GREEN_PIN, 10000); // 10kHz
-    
-    // Configura o LED azul com a mesma frequência do vermelho
-    // Nota: Não é possível controlar o LED azul independentemente
-    // pois ele compartilha o mesmo slice PWM com outro LED
-    pwm_led_init(&blue_led, LED_BLUE_PIN, 1000);
-    
-    // Configura o timer para atualizar o duty cycle a cada 2 segundos
-    add_repeating_timer_ms(UPDATE_INTERVAL_MS, update_timer_callback, NULL, &update_timer);
-    
-    // Loop principal
+    configurar_led();
+    configurar_botao();
+
+    EstadoApp estado = {
+        .piscando = false,
+        .fim_pisca = nil_time,
+        .contagem = 0
+    };
+
     while (true) {
-        sleep_ms(100);
+        if (verificar_botao()) {
+            if (++estado.contagem >= NUM_ACIONAMENTOS) {
+                iniciar_sequencia(&estado);
+            }
+        }
+        sleep_ms(10);
     }
-    
+
     return 0;
 }

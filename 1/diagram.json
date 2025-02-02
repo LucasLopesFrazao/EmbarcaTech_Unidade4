@@ -1,39 +1,59 @@
 {
-    "version": 1,
-    "author": "Lucas Lopes Frazão",
-    "editor": "wokwi",
-    "parts": [
-      {
-        "type": "board-pi-pico-w",
-        "id": "pico",
-        "top": -60.85,
-        "left": -121.25,
-        "attrs": { "builder": "pico-sdk" }
-      },
-      {
-        "type": "wokwi-resistor",
-        "id": "r1",
-        "top": 109.55,
-        "left": -182.4,
-        "attrs": { "value": "1000" }
-      },
-      { "type": "wokwi-led", "id": "led1", "top": 54, "left": -197.8, "attrs": { "color": "blue" } },
-      {
-        "type": "wokwi-pushbutton",
-        "id": "btn1",
-        "top": -32.2,
-        "left": -192,
-        "attrs": { "color": "black" }
+  "version": 1,
+  "author": "Lucas Lopes Frazão",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-pi-pico-w",
+      "id": "pico",
+      "top": 0,
+      "left": 0,
+      "attrs": { 
+        "builder": "pico-sdk",
+        "label": "Controlador Principal"
       }
-    ],
-    "connections": [
-      [ "pico:GP0", "$serialMonitor:RX", "", [] ],
-      [ "pico:GP1", "$serialMonitor:TX", "", [] ],
-      [ "pico:GND.4", "r1:2", "black", [ "h0" ] ],
-      [ "pico:GP12", "led1:A", "green", [ "h0" ] ],
-      [ "led1:C", "r1:1", "green", [ "v0" ] ],
-      [ "pico:GND.1", "btn1:1.r", "black", [ "h0" ] ],
-      [ "pico:GP5", "btn1:2.r", "green", [ "h0" ] ]
-    ],
-    "dependencies": {}
-  }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led",
+      "top": -150,
+      "left": 100,
+      "attrs": { 
+        "color": "blue",
+        "label": "LED de Sinalização"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "resistor",
+      "top": -80,
+      "left": 100,
+      "attrs": { 
+        "value": "1k",
+        "label": "Limitação de Corrente"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "botao",
+      "top": 150,
+      "left": 100,
+      "attrs": { 
+        "color": "black",
+        "label": "Botão de Entrada"
+      }
+    }
+  ],
+  "connections": [
+    ["pico:GP12", "led:A", "green", ["h0"]],
+    ["led:C", "resistor:1", "blue", ["v0"]],
+    ["resistor:2", "pico:GND.4", "black", ["h0"]],
+    
+    ["pico:GP5", "botao:2.r", "yellow", ["h0"]],
+    ["botao:1.r", "pico:GND.1", "black", ["h0"]],
+    
+    ["pico:GP0", "$serialMonitor:RX", "", []],
+    ["pico:GP1", "$serialMonitor:TX", "", []]
+  ],
+  "dependencies": {}
+}
