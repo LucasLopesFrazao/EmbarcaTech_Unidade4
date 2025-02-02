@@ -1,0 +1,37 @@
+{
+    "version": 1,
+    "author": "Pedro Henrique Miranda",
+    "editor": "wokwi",
+    "parts": [
+      {
+        "type": "board-pi-pico-w",
+        "id": "pico",
+        "top": -60.85,
+        "left": -121.25,
+        "attrs": { "builder": "pico-sdk" }
+      },
+      {
+        "type": "wokwi-ds1307",
+        "id": "rtc1",
+        "top": 0,
+        "left": 100,
+        "attrs": {}
+      },
+      {
+        "type": "wokwi-jumper-wire",
+        "id": "wire1",
+        "from": "pico:GP4",
+        "to": "pico:GP5",
+        "attrs": { "color": "red" }
+      }
+    ],
+  "connections": [
+      [ "pico:GP0", "$serialMonitor:RX", "", [] ],
+      [ "pico:GP1", "$serialMonitor:TX", "", [] ],
+      [ "pico:GP4", "rtc1:SDA", "blue", [] ],
+      [ "pico:GP5", "rtc1:SCL", "yellow", [] ],
+      [ "pico:GND", "rtc1:GND", "black", [] ],
+      [ "pico:3V3", "rtc1:VCC", "red", [] ]
+    ],
+    "dependencies": {}
+  }
